@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title></title>
+    <style type="text/css">
+        .con {
+            position: relative;
+            margin: 0 auto;
+            width: 700px;
+            height: 400px;
+            border: 2px solid red;
+            overflow: hidden;
+        }
+        form {
+            margin: 0 auto;
+            width: 700px;
+            height: 40px;
+        }
+        .input-text {
+            width: 300px;
+            height: 40px;
+        }
+        .submit {
+            width: 50px;
+            height: 40px;
+        }
+        .danmu {
+            position: absolute;
+            height: 40px;
+            text-shadow: 2px 2px 2px #ccc;
+            color: #111;
+            font-size: 34px;
+            transform: translateY(0) translateX(700px);
+            transition: all 10s linear;
+            z-index: 1
+        }
+        .danmuCon {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 700px;
+            height: 360px;
+        }
+    </style>
+</head>
+<body>
+    <div class="con">
+        <video src="three.mp4" controls width="700px" height="400px" id="video"></video>
+        <div class="danmuCon">
+            
+        </div>
+    </div>
+    <form>
+        <input type="text" name="" class="input-text">
+        <input type="button" name="" value="提交" class="submit">
+    </form>
+
+    <script src="./ajax.js"></script>
+    <script>
+
+        function DanmuStage() { 
+            this.dandao = [];        // 弹道  0-8     // 5, 0-8 (5)
+            this.height = 400;       // 高度
+            this.lineColumn  = 9;    // 列数
+            this.lineHeight = this.height / (this.lineColumn+1);  // 每一行高度
+            
+            this.timeout = 10;       // when the danmu will fide, default: 10s;
+        }
+
+        function Danmu(text) {
+            this.text = text;
+            this.textWidth = 0;  // default: 0px;
+            // this.left = 0;
+            // this.startTime = Date.now();
+            this.dandao = -1;     // 弹道
+        }
+
+        Danmu.prototype.removeDandao = function() {
+
+            var speed = (parseFloat(this.textWidth) + 700) / stage.timeout;   // danmu'height;
+            var endTime = parseFloat(this.textWidth) / speed;
+
+            setTimeout(function() {
+                var index = stage.dandao.indexOf(this.dandao);
+                stage.dandao.splice(index, 1);
+            }.bind(this), endTime*1000);
+
+        }
+
+
+
+        Danmu.prototype.create = function() {
+
+            var getHeight = function() {
+
+                var random = Math.floor(Math.random()*stage.lineColumn + 0);
+                if (stage.dandao.indexOf(random) === -1) {
+
+                    stage.dandao.push(random);
+                    this.dandao = random;
+
+                    return random * stage.lineHeight;
+                } else {
+                    getHeight();
+                }
+
+
+                
+                console.log(stage.dandao)
+            }.bind(this);
+
+
+            var createDanmu = function(text) {
+                var div = document.createElement('div');
+
+                div.className = 'danmu';
+                div.innerHTML = text;
+
+                document.querySelector('.danmuCon').appendChild(div);
+
+                div.style.top = `${getHeight()}px`;
+
+                this.textWidth = getComputedStyle(div).width;  // get the width of this danmu
+                div.style.transform = `translateX(-${this.textWidth})`;
+
+                setTimeout(function() {
+                    div.remove();
+                }, 10000);
+
+            }.bind(this);
+
+
+
+
+
+            if (typeof this.text === 'string') {
+                createDanmu(this.text);
+            } else if (String.prototype.toString.call(this.text) === "[object Array]") {
+                
+                this.text.forEach(function(val, idx, arr) {
+                    createDanmu(val);
+                });
+
+            }
+
+            this.removeDandao();
+        }
+
+        var video = document.querySelector('#video');
+
+        function getDanmu(time) {
+
+            var src = video.src;
+            src = src.replace(/http.*danmu\//g, '');
+            src = src.replace(/.mp4/g, '');
+
+            Ajax({
+                url: './index.php?method=get&video=' + src + '&time=' + time,
+                method: 'GET',
+                async: true,
+                data: '',
+                success: function (res) {
+                    if (res) {
+
+                        res = JSON.parse(res);
+                        resLen = res.length;
+
+                        res.forEach((val, idx) => {
+                            if (idx <= 8) {
+                                var danmu = new Danmu(res[idx].danmu);
+                                danmu.create();
+                            }
+                        });
+                    }
+                },
+                fail: function () {},
+            });
+
+        }
+
+        var stage = new DanmuStage();
+
+        video.addEventListener('playing', function() {
+
+            setInterval(function() {
+                var time = Math.floor(video.currentTime)
+                getDanmu(time);
+            }, 1000);
+
+            var btn = document.querySelector('.submit');
+
+            btn.addEventListener('click', function() {
+                var textCon = document.querySelector('.input-text'),
+                    text = textCon.value;
+
+                var src = video.src;
+                console.log(src)   //  http://127.0.0.1/danmu/three.mp4
+
+                src = src.replace(/http.*danmu\//g, '');
+                src = src.replace(/.mp4/g, '');   //  three
+
+
+                Ajax({
+                    url: './index.php?method=post&video=' + video + '&danmu=' + text + '&time=' + video.currentTime,
+                    method: 'POST',
+                    async: true,
+                    data: '',
+                    success: function (res) {
+                        
+                    },
+                    fail: function () {},
+                })
+
+                var danmu = new Danmu(text);
+                danmu.create();
+
+                textCon.value = '';
+            }, false);
+
+        });
+
+
+    </script>
+</body>
+</html>
